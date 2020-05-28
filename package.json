@@ -1,0 +1,17 @@
+{
+  "name": "voice-channel-observer",
+  "version": "1.0.0",
+  "description": "Observe Discord Voice Channel",
+  "main": "main.js",
+  "dependencies": {
+    "discord.js": "latest",
+    "nedb": "latest"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node main.js"
+  },
+  "engines": {
+    "node": "12.x"
+  }
+}
