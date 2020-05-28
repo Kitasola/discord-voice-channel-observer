@@ -1,13 +1,11 @@
 // Response for Uptime Robot
-/*
 const http = require("http");
 http
   .createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "text/plain" });
     response.end("Discord bot is active now. Timestamp = " + Date.now());
   })
-  .listen(process.env.PORT);
-*/
+  .listen(process.env.PORT | 5000);
 
 // Discord bot implements
 const discord = require("discord.js");
