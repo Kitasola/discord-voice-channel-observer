@@ -279,4 +279,5 @@ if (process.env.DISCORD_BOT_TOKEN == undefined) {
   process.exit(0);
 }
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+// client.login(process.env.DISCORD_BOT_TOKEN);
+client.login("NzE0OTkyMDY5MjY1MDYzOTQ2.Xs-Ejg.YcZyUUroTIG4OTgACxFnVQqhKHQ");
