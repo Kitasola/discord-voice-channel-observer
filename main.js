@@ -22,15 +22,9 @@ client.on("ready", () => {
 
 // Initialize Database
 const Datastore = require("nedb");
-let observeChannels = new Datastore({
-  filename: "observeChannels.db",
-  autoload: true
-});
+let observeChannels = new Datastore();
 
-let guildSettings = new Datastore({
-  filename: "guildSettings.db",
-  autoload: true
-});
+let guildSettings = new Datastore();
 
 // Callbuck Join/BAN Guild
 client.on("guildCreate", guild => {
