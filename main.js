@@ -1,4 +1,4 @@
-// Response for Uptime Robot
+// Sleep
 const http = require("http");
 http
   .createServer((request, response) => {
@@ -6,6 +6,8 @@ http
     response.end("Discord bot is active now. Timestamp = " + Date.now());
   })
   .listen(process.env.PORT || 5000);
+
+require('dotenv').config()
 
 // Discord bot implements
 const discord = require("discord.js");
@@ -22,44 +24,66 @@ client.on("ready", () => {
 
 // Initialize Database
 const Datastore = require("nedb");
-let observeChannels = new Datastore();
+let observeChannels = new Datastore({
+  filename: 'database/channels.db',
+  autoload: 'true'
+});
 
-let guildSettings = new Datastore();
+let guildSettings = new Datastore({
+  filename: 'database/settings.db',
+  autoload: 'true'
+});
 
 // Callbuck Join/BAN Guild
 client.on("guildCreate", guild => {
-  guildSettings.update({ id: guild.id }, { id: guild.id, minTime: minTimeDiff }, { upsert: true });
+  initDatabase(guild);
+  initLogChannel(guild.channels);
+  console.log("Bot join server: " + guild.name);
+});
+
+async function initDatabase(guild) {
+  await deleteDatabase(guild);
 
   const time = new Date();
   guild.channels.cache
     .filter(channel => channel.type == "voice")
     .forEach(channel => {
       if (channel.id != guild.afkChannelID) {
-        observeChannels.update(
-          { id: channel.id },
+        observeChannels.insert(
           {
             name: channel.name,
             id: channel.id,
             calling: false,
             time: time
-          },
-          { upsert: true }
+          }
         );
       }
     });
-  initLogChannel(guild.channels);
-  console.log("Bot join server: " + guild.name);
-});
+
+  guildSettings.insert({ id: guild.id, minTime: minTimeDiff });
+  createChannelList(guild);
+}
 
 client.on("guildDelete", guild => {
-  guildSettings.remove({ id: guild.id }, { multi: true });
-  guild.channels.cache
-    .filter(channel => channel.type == "voice")
-    .forEach((key, channel) => {
-      observeChannels.remove({ id: channel.id }, { multi: true });
-    });
+  deleteDatabase(guild);
   console.log("Bot ban server: " + guild.name);
 });
+
+async function deleteDatabase(guild) {
+  guildSettings.remove({ id: guild.id }, { multi: true });
+  observeChannels.remove({ id: { $in: guild.channels.cache.keyArray() } }, { multi: true });
+}
+
+function createChannelList(guild) {
+  observeChannels.find({ id: { $in: guild.channels.cache.keyArray() } }, (err, channels) => {
+    let list = new Array();
+    channels.forEach((channel) => {
+      list.push(channel.name);
+      console.log(channel.name);
+    });
+    guildSettings.update({ id: guild.id }, { $set: { list: list } });
+  });
+}
 
 // Observe Voice Channel
 client.on("voiceStateUpdate", async (oldState, newState) => {
@@ -68,7 +92,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     await initLogChannel(newState.guild.channels);
     if (newState.channel != null) {
       observeChannels.find({ id: newState.channel.id }, (err, channels) => {
-        if (channels[0] == undefined) {
+        if (channels == undefined) {
           return;
         }
         const channel = channels[0];
@@ -89,7 +113,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
     if (oldState.channel != null && oldState.channel.members.size < 1) {
       observeChannels.find({ id: oldState.channel.id }, (err, channels) => {
-        if (channels[0] == undefined) {
+        if (channels == undefined) {
           return;
         }
         const channel = channels[0];
@@ -226,39 +250,18 @@ client.on("message", async message => {
       case "add":
         break;
       case "default":
-        guildSettings.update({ id: guild.id }, { id: guild.id, minTime: minTimeDiff }, { upsert: true });
-
-        const time = new Date();
-        guild.channels.cache
-          .filter(channel => channel.type == "voice")
-          .forEach(channel => {
-            if (channel.id != guild.afkChannelID) {
-              observeChannels.update(
-                { id: channel.id },
-                {
-                  name: channel.name,
-                  id: channel.id,
-                  calling: false,
-                  time: time
-                },
-                { upsert: true }
-              );
-            }
-          });
+        initDatabase(message.guild);
         break;
       case "list":
-        sendMessage += "監視しているVCのリスト\n";
-        let channels = message.guild.channels;
-        channels.cache
-          .filter(channel => channel.type == "voice")
-          .forEach(channel => {
-            observeChannels.find({ id: channel.id }, (err, channels) => {
-              if (channels[0] != undefined) {
-                sendMessage += channels[0].name + "\n";
-                console.log(channels[0].name);
-              }
-            });
+        sendMessage += '監視しているVoice Channel';
+        sendMessage += '```';
+        guildSettings.find({ id: message.guild.id }, async (err, guild) => {
+          await guild[0].list.forEach(name => {
+            sendMessage += name + '\n';
           });
+          sendMessage += '```';
+          message.reply(sendMessage);
+        });
         return;
         break;
       case "help":
@@ -266,7 +269,7 @@ client.on("message", async message => {
         sendMessage += createHelpMessage();
         break;
     }
-    message.channel.send(sendMessage);
+    message.reply(sendMessage);
     return;
   }
 });
