@@ -301,7 +301,7 @@ client.on("message", async message => {
 function createHelpMessage() {
   let message = `各コマンドの先頭には${client.user}が必要です.\n`;
   message += "```";
-  message += "reload";
+  message += "reload\n";
   message += "各種設定や通話履歴の初期化をする.\n\n";
   message += "ignore [time]\n";
   message +=
