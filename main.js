@@ -239,6 +239,7 @@ client.on("message", async message => {
               }
             });
           });
+        return;
         break;
       case "help":
       default:
