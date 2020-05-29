@@ -225,6 +225,27 @@ client.on("message", async message => {
         break;
       case "add":
         break;
+      case "default":
+        guildSettings.update({ id: guild.id }, { id: guild.id, minTime: minTimeDiff }, { upsert: true });
+
+        const time = new Date();
+        guild.channels.cache
+          .filter(channel => channel.type == "voice")
+          .forEach(channel => {
+            if (channel.id != guild.afkChannelID) {
+              observeChannels.update(
+                { id: channel.id },
+                {
+                  name: channel.name,
+                  id: channel.id,
+                  calling: false,
+                  time: time
+                },
+                { upsert: true }
+              );
+            }
+          });
+        break;
       case "list":
         sendMessage += "監視しているVCのリスト\n";
         let channels = message.guild.channels;
