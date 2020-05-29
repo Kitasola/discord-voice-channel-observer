@@ -28,7 +28,7 @@ let guildSettings = new Datastore();
 
 // Callbuck Join/BAN Guild
 client.on("guildCreate", guild => {
-  guildSettings.insert({ id: guild.id, minTime: minTimeDiff });
+  guildSettings.update({ id: guild.id }, { id: guild.id, minTime: minTimeDiff }, { upsert: true });
 
   const time = new Date();
   guild.channels.cache
