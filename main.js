@@ -236,8 +236,11 @@ client.on("message", async message => {
                 sendMessage += channels[0].name + "\n";
                 console.log(channels[0].name);
               }
+            }).then(() => {
+              message.reply(sendMessage);
             });
           });
+        return;
         break;
       case "help":
       default:
