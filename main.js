@@ -300,8 +300,9 @@ client.on("message", async message => {
 
 function createHelpMessage() {
   let message = `各コマンドの先頭には${client.user}が必要です.\n`;
-  message += "reload"
-  message += "各種設定や通話履歴の初期化をする."
+  message += "```";
+  message += "reload";
+  message += "各種設定や通話履歴の初期化をする.\n\n";
   message += "ignore [time]\n";
   message +=
     "time秒未満で通話が終了した場合通知しないようにする(デフォルト30秒). time: 整数(0以下は全て0になる)\n\n";
@@ -313,6 +314,7 @@ function createHelpMessage() {
   message += "remove [id]\n";
   message +=
     "Botが監視するVoice Channelのリストからidのチャンネルを削除する. name: チャンネルID\n\n";
+  message += "```";
   return message;
 }
 
