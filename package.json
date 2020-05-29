@@ -5,7 +5,8 @@
   "main": "main.js",
   "dependencies": {
     "discord.js": "latest",
-    "nedb": "latest"
+    "nedb": "latest",
+    "mongodb": "latest"
   },
   "devDependencies": {},
   "scripts": {
