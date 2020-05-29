@@ -34,13 +34,6 @@ let guildSettings = new Datastore({
   autoload: 'true'
 });
 
-// Callbuck Join/BAN Guild
-client.on("guildCreate", guild => {
-  initDatabase(guild);
-  initLogChannel(guild.channels);
-  console.log("Bot join server: " + guild.name);
-});
-
 async function initDatabase(guild) {
   await deleteDatabase(guild);
 
@@ -49,14 +42,7 @@ async function initDatabase(guild) {
     .filter(channel => channel.type == "voice")
     .forEach(channel => {
       if (channel.id != guild.afkChannelID) {
-        observeChannels.insert(
-          {
-            name: channel.name,
-            id: channel.id,
-            calling: false,
-            time: time
-          }
-        );
+        addObserveChannel(channel);
       }
     });
 
@@ -64,22 +50,44 @@ async function initDatabase(guild) {
   createChannelList(guild);
 }
 
-client.on("guildDelete", guild => {
-  deleteDatabase(guild);
-  console.log("Bot ban server: " + guild.name);
-});
-
 async function deleteDatabase(guild) {
   guildSettings.remove({ id: guild.id }, { multi: true });
   observeChannels.remove({ id: { $in: guild.channels.cache.keyArray() } }, { multi: true });
 }
+
+function addObserveChannel(channel) {
+  observeChannels.update(
+    { id: channel.id },
+    {
+      name: channel.name,
+      id: channel.id,
+      calling: false,
+      time: new Date()
+    }, { upsert: true }
+  );
+}
+
+function removeObserveChannel(channel) {
+  observeChannels.remove({ id: channel.id });
+}
+
+// Callbuck Join/BAN Guild
+client.on("guildCreate", guild => {
+  initDatabase(guild);
+  initLogChannel(guild.channels);
+  console.log("Bot join server: " + guild.name);
+});
+
+client.on("guildDelete", guild => {
+  deleteDatabase(guild);
+  console.log("Bot ban server: " + guild.name);
+});
 
 function createChannelList(guild) {
   observeChannels.find({ id: { $in: guild.channels.cache.keyArray() } }, (err, channels) => {
     let list = new Array();
     channels.forEach((channel) => {
       list.push(channel.name);
-      console.log(channel.name);
     });
     guildSettings.update({ id: guild.id }, { $set: { list: list } });
   });
@@ -92,7 +100,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     await initLogChannel(newState.guild.channels);
     if (newState.channel != null) {
       observeChannels.find({ id: newState.channel.id }, (err, channels) => {
-        if (channels == undefined) {
+        if (channels[0] == undefined) {
           return;
         }
         const channel = channels[0];
@@ -113,7 +121,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
     if (oldState.channel != null && oldState.channel.members.size < 1) {
       observeChannels.find({ id: oldState.channel.id }, (err, channels) => {
-        if (channels == undefined) {
+        if (channels[0] == undefined) {
           return;
         }
         const channel = channels[0];
@@ -245,11 +253,27 @@ client.on("message", async message => {
       case "ignore":
         if (parseInt(command[2]) != NaN) {
           changeMinTimeDiff(parseInt(command[2]), message.guild);
+        } else {
+          sendMessage += "Failed command"
         }
         break;
       case "add":
+        if (command[2] != undefined) {
+          addObserveChannel(message.guild.channels.cache.get(command[2]));
+          createChannelList(message.guild);
+        } else {
+          sendMessage += "Failed command"
+        }
         break;
-      case "default":
+      case "remove":
+        if (command[2] != undefined) {
+          removeObserveChannel(message.guild.channels.cache.get(command[2]));
+          createChannelList(message.guild);
+        } else {
+          sendMessage += "Failed command"
+        }
+        break;
+      case "reload":
         initDatabase(message.guild);
         break;
       case "list":
@@ -276,18 +300,19 @@ client.on("message", async message => {
 
 function createHelpMessage() {
   let message = `各コマンドの先頭には${client.user}が必要です.\n`;
+  message += "reload"
+  message += "各種設定や通話履歴の初期化をする."
   message += "ignore [time]\n";
   message +=
     "time秒未満で通話が終了した場合通知しないようにする(デフォルト30秒). time: 整数(0以下は全て0になる)\n\n";
-  message += "/*----------実装予定----------*/\n";
   message += "list\n";
   message += "Botが監視するVoice Channelのリストを表示する.\n\n";
-  message += "add [name]\n";
+  message += "add [id]\n";
   message +=
-    "Botが監視するVoice Channelのリストにnameのチャンネルを追加する. name: 文字列\n\n";
-  message += "remove [name]\n";
+    "Botが監視するVoice Channelのリストにidのチャンネルを追加する. name: チャンネルID\n\n";
+  message += "remove [id]\n";
   message +=
-    "Botが監視するVoice Channelのリストからnameのチャンネルを削除する. name: 文字列\n\n";
+    "Botが監視するVoice Channelのリストからidのチャンネルを削除する. name: チャンネルID\n\n";
   return message;
 }
 
