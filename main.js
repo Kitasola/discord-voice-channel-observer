@@ -234,6 +234,7 @@ client.on("message", async message => {
             observeChannels.find({ id: channel.id }, (err, channels) => {
               if (channels[0] != undefined) {
                 sendMessage += channels[0].name + "\n";
+                message.channel.send(channels[0].name);
                 console.log(channels[0].name);
               }
             });
