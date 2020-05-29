@@ -208,13 +208,14 @@ function changeMinTimeDiff(time, guild) {
 }
 
 // Command
+let sendMessage;
 client.on("message", async message => {
   if (message.author.bot) {
     return;
   }
 
   if (message.mentions.users.find(user => user == client.user) != undefined) {
-    let sendMessage = "にゃーん\n";
+    sendMessage = "にゃーん\n";
     const command = message.content.split(" ");
     switch (command[1]) {
       case "ignore":
@@ -233,7 +234,7 @@ client.on("message", async message => {
             observeChannels.find({ id: channel.id }, (err, channels) => {
               if (channels[0] != undefined) {
                 sendMessage += channels[0].name + "\n";
-                console.log(channels[0].name + "\n");
+                console.log(channels[0].name);
               }
             });
           });
