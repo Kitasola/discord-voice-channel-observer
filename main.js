@@ -314,6 +314,7 @@ function createHelpMessage() {
   message +=
     "Botが監視するVoice Channelのリストからidのチャンネルを削除する. name: チャンネルID\n\n";
   message += "```\n";
+  message += "powered by herokua\n";
   return message;
 }
 
