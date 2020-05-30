@@ -23,40 +23,39 @@ client.on("ready", () => {
 });
 
 // Initialize Database
-const Datastore = require("nedb");
-let observeChannels = new Datastore({
-  filename: 'database/channels.db',
-  autoload: 'true'
-});
-
-let guildSettings = new Datastore({
-  filename: 'database/settings.db',
-  autoload: 'true'
+const MongoClient = new require('mongodb').MongoClient(process.env.MONGODB_URI, { useUnifiedTopology: true });
+let observeChannels, guildSettings;
+MongoClient.connect((err) => {
+  if (err) throw err;
+  const db = MongoClient.db();
+  observeChannels = db.collection("observeChannels");
+  guildSettings = db.collection("guildSettings");
+  console.log("Database is ready.");
 });
 
 async function initDatabase(guild) {
   await deleteDatabase(guild);
 
   const time = new Date();
-  guild.channels.cache
-    .filter(channel => channel.type == "voice")
-    .forEach(channel => {
-      if (channel.id != guild.afkChannelID) {
-        addObserveChannel(channel);
-      }
+  const voiceChannels = new Array();
+  await guild.channels.cache
+    .filter(channel => channel.type == "voice" && channel.id != guild.afkChannelID)
+    .forEach(async (channel) => {
+      voiceChannels.push({ name: channel.name, id: channel.id, calling: false, time: time });
     });
+  await observeChannels.insertMany(voiceChannels);
 
-  guildSettings.insert({ id: guild.id, minTime: minTimeDiff });
+  guildSettings.insertOne({ id: guild.id, minTime: minTimeDiff });
   createChannelList(guild);
 }
 
 async function deleteDatabase(guild) {
-  guildSettings.remove({ id: guild.id }, { multi: true });
-  observeChannels.remove({ id: { $in: guild.channels.cache.keyArray() } }, { multi: true });
+  guildSettings.deleteMany({ id: guild.id });
+  observeChannels.deleteMany({ id: { $in: guild.channels.cache.keyArray() } });
 }
 
-function addObserveChannel(channel) {
-  observeChannels.update(
+async function addObserveChannel(channel) {
+  await observeChannels.updateOne(
     { id: channel.id },
     {
       name: channel.name,
@@ -67,8 +66,8 @@ function addObserveChannel(channel) {
   );
 }
 
-function removeObserveChannel(channel) {
-  observeChannels.remove({ id: channel.id });
+function deleteObserveChannel(channel) {
+  observeChannels.deleteOne({ id: channel.id });
 }
 
 // Callbuck Join/BAN Guild
@@ -84,31 +83,31 @@ client.on("guildDelete", guild => {
 });
 
 function createChannelList(guild) {
-  observeChannels.find({ id: { $in: guild.channels.cache.keyArray() } }, (err, channels) => {
+  observeChannels.find({ id: { $in: guild.channels.cache.keyArray() } }).toArray((err, channels) => {
     let list = new Array();
     channels.forEach((channel) => {
       list.push(channel.name);
     });
-    guildSettings.update({ id: guild.id }, { $set: { list: list } });
+    guildSettings.updateOne({ id: guild.id }, { $set: { list: list } });
   });
 }
 
 // Observe Voice Channel
 client.on("voiceStateUpdate", async (oldState, newState) => {
   let finished = false;
+  // Join/Exit VC
   if (newState.channel != oldState.channel) {
     await initLogChannel(newState.guild.channels);
     if (newState.channel != null) {
-      observeChannels.find({ id: newState.channel.id }, (err, channels) => {
+      observeChannels.find({ id: newState.channel.id }).toArray((err, channels) => {
         if (channels[0] == undefined) {
           return;
         }
         const channel = channels[0];
         if (!channel.calling) {
-          observeChannels.update(
+          observeChannels.updateMany(
             { id: channel.id },
-            { $set: { calling: true, time: new Date() } },
-            { multi: true }
+            { $set: { calling: true, time: new Date() } }
           );
           sendVoiceStart(newState);
           finished = true;
@@ -120,18 +119,17 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     }
 
     if (oldState.channel != null && oldState.channel.members.size < 1) {
-      observeChannels.find({ id: oldState.channel.id }, (err, channels) => {
+      observeChannels.find({ id: oldState.channel.id }).toArray((err, channels) => {
         if (channels[0] == undefined) {
           return;
         }
         const channel = channels[0];
         if (channel.calling) {
-          observeChannels.update(
+          observeChannels.updateMany(
             { id: channel.id },
             { $set: { calling: false } },
-            { multi: true }
           );
-          guildSettings.find({ id: oldState.guild.id }, (err, guilds) => {
+          guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
             if (guilds[0] != undefined) {
               sendVoiceEnd(channel, guilds[0].minTime);
             } else {
@@ -141,7 +139,9 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
           finished = true;
         }
       });
+
     }
+
   }
 });
 
@@ -232,10 +232,9 @@ function changeMinTimeDiff(time, guild) {
   if (time < 0) {
     time = 0;
   }
-  guildSettings.update(
+  guildSettings.updateMany(
     { id: guild.id },
     { $set: { minTime: time } },
-    { multi: true }
   );
 }
 
@@ -265,9 +264,9 @@ client.on("message", async message => {
           sendMessage += "Failed command"
         }
         break;
-      case "remove":
+      case "delete":
         if (command[2] != undefined) {
-          removeObserveChannel(message.guild.channels.cache.get(command[2]));
+          deleteObserveChannel(message.guild.channels.cache.get(command[2]));
           createChannelList(message.guild);
         } else {
           sendMessage += "Failed command"
@@ -279,7 +278,7 @@ client.on("message", async message => {
       case "list":
         sendMessage += '監視しているVoice Channel';
         sendMessage += '```';
-        guildSettings.find({ id: message.guild.id }, async (err, guild) => {
+        guildSettings.find({ id: message.guild.id }).toArray(async (err, guild) => {
           await guild[0].list.forEach(name => {
             sendMessage += name + '\n';
           });
@@ -300,7 +299,7 @@ client.on("message", async message => {
 
 function createHelpMessage() {
   let message = `各コマンドの先頭には${client.user}が必要です.\n`;
-  message += "```";
+  message += "```\n";
   message += "reload\n";
   message += "各種設定や通話履歴の初期化をする.\n\n";
   message += "ignore [time]\n";
@@ -311,10 +310,10 @@ function createHelpMessage() {
   message += "add [id]\n";
   message +=
     "Botが監視するVoice Channelのリストにidのチャンネルを追加する. name: チャンネルID\n\n";
-  message += "remove [id]\n";
+  message += "delete [id]\n";
   message +=
     "Botが監視するVoice Channelのリストからidのチャンネルを削除する. name: チャンネルID\n\n";
-  message += "```";
+  message += "```\n";
   return message;
 }
 
