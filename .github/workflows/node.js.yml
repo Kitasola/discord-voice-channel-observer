@@ -27,5 +27,4 @@ jobs:
         touch .env
         echo DISCORD_BOT_TOKEN =${{ secrets.DISCORD_BOT_TOKEN }} >> .env
         echo MONGODB_URI =${{ secrets.MONGODB_URI }} >> .env
-        cat .env
         npm start
