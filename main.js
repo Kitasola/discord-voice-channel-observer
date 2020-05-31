@@ -191,7 +191,7 @@ function sendVoiceStart(state) {
   logChannel.send(message);
 }
 
-function sendVoiceEnd(channel) {
+function sendVoiceEnd(channel, minTime) {
   let message = {
     embed: {
       title: "通話終了",
@@ -204,7 +204,7 @@ function sendVoiceEnd(channel) {
         },
         {
           name: "通話時間",
-          value: convertTimestamp(channel.time, Date.now(), minTimeDiff),
+          value: convertTimestamp(channel.time, Date.now(), minTime),
           inline: true
         }
       ]
@@ -217,9 +217,9 @@ function sendVoiceEnd(channel) {
 }
 
 // Convert Timestamp Difference
-let minTimeDiff = 30;
-function convertTimestamp(start, end, timeDiff) {
-  if (end - start < timeDiff * 1000) {
+let defaultMinTime = 30;
+function convertTimestamp(start, end, minTime) {
+  if (end - start < minTime * 1000) {
     return undefined;
   }
   const hour = ("00" + parseInt((end - start) / 1000 / 60 / 60)).slice(-2);
@@ -228,7 +228,7 @@ function convertTimestamp(start, end, timeDiff) {
   return hour + ":" + min + ":" + sec;
 }
 
-function changeMinTimeDiff(time, guild) {
+function changeMinTime(time, guild) {
   if (time < 0) {
     time = 0;
   }
@@ -251,7 +251,7 @@ client.on("message", async message => {
     switch (command[1]) {
       case "ignore":
         if (parseInt(command[2]) != NaN) {
-          changeMinTimeDiff(parseInt(command[2]), message.guild);
+          changeMinTime(parseInt(command[2]), message.guild);
         } else {
           sendMessage += "Failed command"
         }
