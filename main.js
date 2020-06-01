@@ -261,7 +261,7 @@ function sendSteamOn(state) {
   };
 
   let activity = state.member.presence.activities[0];
-  if (activity.name != undefined) {
+  if (activity != undefined && activity.name != undefined) {
     if (activity.url != undefined) {
       message.embed.fields[2].value = `[${activity.name}](${activity.url})`;
     } else {
