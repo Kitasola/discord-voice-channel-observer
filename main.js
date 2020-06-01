@@ -129,11 +129,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
             { $set: { calling: false } },
           );
           guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
-            if (guilds[0] != undefined) {
-              sendVoiceEnd(channel, guilds[0].minTime);
-            } else {
-              sendVoiceEnd(channel, defaultMinTime);
-            }
+            sendVoiceEnd(channel, guilds[0].minTime);
           });
           finished = true;
         }
@@ -152,11 +148,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     observeMembers.find({ id: oldState.id }).toArray((err, members) => {
       if (members[0] != undefined) {
         guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
-          if (guilds[0] != undefined) {
-            sendStreamOff(oldState, members[0].time, guilds[0].minTime);
-          } else {
-            sendStreamOff(oldState, members[0].time, defaultMinTime);
-          }
+          sendStreamOff(oldState, members[0].time, guilds[0].minTime);
         });
         channels[0].deleteMany({ id: oldState.id });
       }
@@ -199,7 +191,7 @@ function sendVoiceStart(state) {
           inline: true
         },
         {
-          name: "配信者",
+          name: "始めた人",
           value: state.member.user.username,
           inline: true
         }
@@ -255,20 +247,27 @@ function sendSteamOn(state) {
           inline: true
         },
         {
-          name: "始めた人",
+          name: "配信者",
           value: state.member.user.username,
           inline: true
         },
         {
           name: "配信画面",
-          value: state.member.presence.activities[0].name,
+          value: "",
           inline: true
         }
       ]
     }
   };
 
-  if (message.embed.fields[2].value == undefined) {
+  let activity = state.member.presence.activities[0];
+  if (activity.name != undefined) {
+    if (activity.url != undefined) {
+      message.embed.fields[2].value = `[${activity.name}](${activity.url})`;
+    } else {
+      message.embed.fields[2].value = activity.name;
+    }
+  } else {
     message.embed.fields[2].value = "unknow";
   }
 
@@ -318,6 +317,9 @@ function sendStreamOff() {
 // Convert Timestamp Difference
 let defaultMinTime = 30;
 function convertTimestamp(start, end, minTime) {
+  if (minTime == undefined) {
+    minTime = defaultMinTime;
+  }
   if (end - start < minTime * 1000) {
     return undefined;
   }
