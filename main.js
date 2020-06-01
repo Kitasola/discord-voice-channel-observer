@@ -24,12 +24,13 @@ client.on("ready", () => {
 
 // Initialize Database
 const MongoClient = new require('mongodb').MongoClient(process.env.MONGODB_URI, { useUnifiedTopology: true });
-let observeChannels, guildSettings;
+let observeChannels, guildSettings, observeMembers;
 MongoClient.connect((err) => {
   if (err) throw err;
   const db = MongoClient.db();
   observeChannels = db.collection("observeChannels");
   guildSettings = db.collection("guildSettings");
+  observeMembers = db.collection("observeMembers");
   console.log("Database is ready.");
 });
 
@@ -45,13 +46,14 @@ async function initDatabase(guild) {
     });
   await observeChannels.insertMany(voiceChannels);
 
-  guildSettings.insertOne({ id: guild.id, minTime: minTimeDiff });
+  guildSettings.insertOne({ id: guild.id, minTime: defaultMinTime });
   createChannelList(guild);
 }
 
 async function deleteDatabase(guild) {
   guildSettings.deleteMany({ id: guild.id });
   observeChannels.deleteMany({ id: { $in: guild.channels.cache.keyArray() } });
+  observeMembers.deleteMany({ id: { $in: guild.members.cache.keyArray() } });
 }
 
 async function addObserveChannel(channel) {
@@ -95,9 +97,9 @@ function createChannelList(guild) {
 // Observe Voice Channel
 client.on("voiceStateUpdate", async (oldState, newState) => {
   let finished = false;
-  // Join/Exit VC
+  await initLogChannel(newState.guild.channels);
+  // Trigger Join/Exit VC
   if (newState.channel != oldState.channel) {
-    await initLogChannel(newState.guild.channels);
     if (newState.channel != null) {
       observeChannels.find({ id: newState.channel.id }).toArray((err, channels) => {
         if (channels[0] == undefined) {
@@ -114,11 +116,8 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
         }
       });
     }
-    if (finished) {
-      return;
-    }
 
-    if (oldState.channel != null && oldState.channel.members.size < 1) {
+    if (!finished && oldState.channel != null && oldState.channel.members.size < 1) {
       observeChannels.find({ id: oldState.channel.id }).toArray((err, channels) => {
         if (channels[0] == undefined) {
           return;
@@ -133,15 +132,35 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
             if (guilds[0] != undefined) {
               sendVoiceEnd(channel, guilds[0].minTime);
             } else {
-              sendVoiceEnd(channel, minTimeDiff);
+              sendVoiceEnd(channel, defaultMinTime);
             }
           });
           finished = true;
         }
       });
-
     }
+  }
 
+  // Trigger ON/OFF Stream
+  if (newState.streaming != oldState.streaming) {
+    if (newState.streaming) {
+      observeMembers.updateOne({ id: newState.channel.id }, { $set: { id: newState.channel.id, time: new Date() } }, { upsert: true }, () => {
+        sendSteamOn(newState);
+      });
+    }
+  } else {
+    observeMembers.find({ id: oldState.id }).toArray((err, members) => {
+      if (members[0] != undefined) {
+        guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
+          if (guilds[0] != undefined) {
+            sendStreamOff(oldState, members[0].time, guilds[0].minTime);
+          } else {
+            sendStreamOff(oldState, members[0].time, defaultMinTime);
+          }
+        });
+        channels[0].deleteMany({ id: oldState.id });
+      }
+    });
   }
 });
 
@@ -180,7 +199,7 @@ function sendVoiceStart(state) {
           inline: true
         },
         {
-          name: "始めた人",
+          name: "配信者",
           value: state.member.user.username,
           inline: true
         }
@@ -214,6 +233,86 @@ function sendVoiceEnd(channel, minTime) {
   if (message.embed.fields[1].value != undefined) {
     logChannel.send(message);
   }
+};
+
+function sendSteamOn(state) {
+  let message = {
+    embed: {
+      title: "配信開始",
+      color: 767011,
+      thumbnail: {
+        url:
+          "https://cdn.discordapp.com/avatars/" +
+          state.member.user.id +
+          "/" +
+          state.member.user.avatar +
+          ".png"
+      },
+      fields: [
+        {
+          name: "チャンネル名",
+          value: state.channel.name,
+          inline: true
+        },
+        {
+          name: "始めた人",
+          value: state.member.user.username,
+          inline: true
+        },
+        {
+          name: "配信画面",
+          value: state.member.presence.activities[0].name,
+          inline: true
+        }
+      ]
+    }
+  };
+
+  if (message.embed.fields[2].value == undefined) {
+    message.embed.fields[2].value = "unknow";
+  }
+
+  logChannel.send(message);
+};
+
+function sendStreamOff() {
+  /*
+  let message = {
+    embed: {
+      title: "通話終了",
+      color: 14498578,
+      thumbnail: {
+        url:
+          "https://cdn.discordapp.com/avatars/" +
+          state.member.user.id +
+          "/" +
+          state.member.user.avatar +
+          ".png"
+      },
+      fields: [
+        {
+          name: "チャンネル名",
+          value: state.channel.name,
+          inline: true
+        },
+        {
+          name: "配信者",
+          value: state.member.user.username,
+          inline: true
+        },
+        {
+          name: "配信時間",
+          value: convertTimestamp(time, Date.now(), minTime),
+          inline: true
+        }
+      ]
+    }
+  };
+
+  if (message.embed.fields[1].value != undefined) {
+    logChannel.send(message);
+  }
+  */
 }
 
 // Convert Timestamp Difference
