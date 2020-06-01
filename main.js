@@ -268,7 +268,7 @@ function sendSteamOn(state) {
       message.embed.fields[2].value = activity.name;
     }
   } else {
-    message.embed.fields[2].value = "unknow";
+    message.embed.fields[2].value = "unknown";
   }
 
   logChannel.send(message);
