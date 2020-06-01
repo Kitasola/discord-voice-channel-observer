@@ -215,7 +215,7 @@ function sendVoiceEnd(channel, minTime) {
         },
         {
           name: "通話時間",
-          value: convertTimestamp(channel.time, Date.now(), minTime),
+          value: convertTimestamp(channel.time, new Date(), minTime),
           inline: true
         }
       ]
