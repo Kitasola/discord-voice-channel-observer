@@ -140,19 +140,19 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   // Trigger ON/OFF Stream
   if (newState.streaming != oldState.streaming) {
     if (newState.streaming) {
-      observeMembers.updateOne({ id: newState.channel.id }, { $set: { id: newState.channel.id, time: new Date() } }, { upsert: true }, () => {
+      observeMembers.insertOne({ id: newState.id, time: Date.now() }, { upsert: true }, () => {
         sendSteamOn(newState);
       });
+    } else {
+      observeMembers.find({ id: oldState.id }).toArray(async (err, members) => {
+        if (members[0] != undefined) {
+          await guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
+            sendStreamOff(oldState, members[0].time, guilds[0].minTime);
+          });
+          observeMembers.deleteMany({ id: oldState.id });
+        }
+      });
     }
-  } else {
-    observeMembers.find({ id: oldState.id }).toArray((err, members) => {
-      if (members[0] != undefined) {
-        guildSettings.find({ id: oldState.guild.id }).toArray((err, guilds) => {
-          sendStreamOff(oldState, members[0].time, guilds[0].minTime);
-        });
-        channels[0].deleteMany({ id: oldState.id });
-      }
-    });
   }
 });
 
@@ -274,11 +274,10 @@ function sendSteamOn(state) {
   logChannel.send(message);
 };
 
-function sendStreamOff() {
-  /*
+function sendStreamOff(state, time, minTime) {
   let message = {
     embed: {
-      title: "通話終了",
+      title: "配信終了",
       color: 14498578,
       thumbnail: {
         url:
@@ -311,7 +310,6 @@ function sendStreamOff() {
   if (message.embed.fields[1].value != undefined) {
     logChannel.send(message);
   }
-  */
 }
 
 // Convert Timestamp Difference
