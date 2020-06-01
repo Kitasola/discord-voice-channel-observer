@@ -307,7 +307,7 @@ function sendStreamOff(state, time, minTime) {
     }
   };
 
-  if (message.embed.fields[1].value != undefined) {
+  if (message.embed.fields[2].value != undefined) {
     logChannel.send(message);
   }
 }
