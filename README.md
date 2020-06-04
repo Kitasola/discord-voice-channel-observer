@@ -13,4 +13,4 @@ comming soon.
 ヘルプは`@電話だよー help`から確認可能
 
 # License
-This software is released under the MIT License, see LICENSE.txt.
+This software is released under the MIT License, see LICENSE.
