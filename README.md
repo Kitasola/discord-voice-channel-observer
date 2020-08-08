@@ -1,7 +1,7 @@
 # discord-voice-channel-observer
 DiscordのVocice Channelを監視してくれるBotです.   
-[Install Link](https://discord.com/oauth2/authorize?client_id=714992069265063946&permissions=33572880&scope=bot)
-[Social Preview](img/call-chan) create by @MgPYN
+[Install Link](https://discord.com/oauth2/authorize?client_id=714992069265063946&permissions=33572880&scope=bot)   
+[Social Preview](img/call-chan.png) create by @MgPYN
 
 # Feature
 * 通話を開始/終了したVoice Channelの通知
