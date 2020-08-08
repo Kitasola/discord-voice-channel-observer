@@ -111,7 +111,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
             { id: channel.id },
             { $set: { calling: true, time: new Date() } }
           );
-          sendVoiceStart(newState);
+          await sendVoiceStart(newState);
           finished = true;
         }
       });
@@ -171,7 +171,7 @@ function initLogChannel(channels) {
   }
 }
 
-function sendVoiceStart(state) {
+async function sendVoiceStart(state) {
   let message = {
     embed: {
       title: "通話開始",
